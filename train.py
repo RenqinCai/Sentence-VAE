@@ -70,7 +70,7 @@ def main(args):
     def loss_fn(logp, target, length, mean, logv, anneal_function, step, k, x0):
 
         # cut-off unnecessary padding from target, and flatten
-        target = target[:, :torch.max(length).data[0]].contiguous().view(-1)
+        target = target[:, :torch.max(length).data].contiguous().view(-1)
         logp = logp.view(-1, logp.size(2))
         
         # Negative Log Likelihood
@@ -130,9 +130,14 @@ def main(args):
                     optimizer.step()
                     step += 1
 
-
                 # bookkeepeing
-                tracker['ELBO'] = torch.cat((tracker['ELBO'], loss.data))
+                # print("elbo", tracker['ELBO'])
+                # print("loss", loss)
+                if iteration == 0:
+                    tracker['ELBO'] = loss.data
+                    tracker['ELBO'] = tracker['ELBO'].view(1)
+                else:
+                    tracker['ELBO'] = torch.cat((tracker['ELBO'], loss.view(1)))
 
                 if args.tensorboard_logging:
                     writer.add_scalar("%s/ELBO"%split.upper(), loss.data[0], epoch*len(data_loader) + iteration)
@@ -142,12 +147,14 @@ def main(args):
 
                 if iteration % args.print_every == 0 or iteration+1 == len(data_loader):
                     print("%s Batch %04d/%i, Loss %9.4f, NLL-Loss %9.4f, KL-Loss %9.4f, KL-Weight %6.3f"
-                        %(split.upper(), iteration, len(data_loader)-1, loss.data[0], NLL_loss.data[0]/batch_size, KL_loss.data[0]/batch_size, KL_weight))
+                        %(split.upper(), iteration, len(data_loader)-1, loss.data.item(), NLL_loss.data.item()/batch_size, KL_loss.data.item()/batch_size, KL_weight))
 
                 if split == 'valid':
                     if 'target_sents' not in tracker:
                         tracker['target_sents'] = list()
                     tracker['target_sents'] += idx2word(batch['target'].data, i2w=datasets['train'].get_i2w(), pad_idx=datasets['train'].pad_idx)
+
+                    # print("z", tracker['z'], z)
                     tracker['z'] = torch.cat((tracker['z'], z.data), dim=0)
 
             print("%s Epoch %02d/%i, Mean ELBO %9.4f"%(split.upper(), epoch, args.epochs, torch.mean(tracker['ELBO'])))
