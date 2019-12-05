@@ -5,7 +5,9 @@ import argparse
 
 from model import SentenceVAE
 from utils import to_var, idx2word, interpolate
-
+from torch.utils.data import DataLoader
+from ptb import PTB
+from multiprocessing import cpu_count
 
 def main(args):
 
@@ -42,16 +44,45 @@ def main(args):
     
     model.eval()
 
-    samples, z = model.inference(n=args.num_samples)
-    print('----------SAMPLES----------')
-    print(*idx2word(samples, i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
+    # samples, z = model.inference(n=args.num_samples)
+    # print('----------SAMPLES----------')
+    # print(*idx2word(samples, i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
 
-    z1 = torch.randn([args.latent_size]).numpy()
-    z2 = torch.randn([args.latent_size]).numpy()
-    z = to_var(torch.from_numpy(interpolate(start=z1, end=z2, steps=8)).float())
-    samples, _ = model.inference(z=z)
-    print('-------INTERPOLATION-------')
-    print(*idx2word(samples, i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
+    # z1 = torch.randn([args.latent_size]).numpy()
+    # z2 = torch.randn([args.latent_size]).numpy()
+    # z = to_var(torch.from_numpy(interpolate(start=z1, end=z2, steps=8)).float())
+    # samples, _ = model.inference(z=z)
+    # print('-------INTERPOLATION-------')
+    # print(*idx2word(samples, i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
+
+    print('-------Encode ... Decode-------')
+    
+    datasets = PTB(
+            data_dir=args.data_dir,
+            split="valid",
+            create_data=False,
+            max_sequence_length=args.max_sequence_length,
+            min_occ=1
+        )
+    data_loader = DataLoader(dataset=datasets, batch_size=2, shuffle='valid',num_workers=cpu_count(), pin_memory=torch.cuda.is_available())
+
+    for iteration, batch in enumerate(data_loader):
+        batch_size = batch['input'].size(0)
+        for k, v in batch.items():
+            if torch.is_tensor(v):
+                batch[k] = to_var(v)
+
+        print("*"*10)
+        print(*idx2word(batch['input'], i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
+        logp, mean, logv, z = model(batch['input'], batch['length'])
+
+        print("+"*10)
+        samples, z = model.inference(z=z)
+        print(*idx2word(samples, i2w=i2w, pad_idx=w2i['<pad>']), sep='\n')
+
+        
+        if iteration == 0:
+            break
 
 if __name__ == '__main__':
 

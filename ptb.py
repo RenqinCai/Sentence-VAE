@@ -23,6 +23,8 @@ class PTB(Dataset):
         self.data_file = 'ptb.'+split+'.json'
         self.vocab_file = 'ptb.vocab.json'
 
+        self.max_line = 18000
+
         if create_data:
             print("Creating new %s ptb data."%split.upper())
             self._create_data()
@@ -33,7 +35,6 @@ class PTB(Dataset):
 
         else:
             self._load_data()
-
 
     def __len__(self):
         return len(self.data)
@@ -125,6 +126,9 @@ class PTB(Dataset):
                 data[id]['target'] = target
                 data[id]['length'] = length
 
+                if i > self.max_line:
+                    break
+
         with io.open(os.path.join(self.data_dir, self.data_file), 'wb') as data_file:
             data = json.dumps(data, ensure_ascii=False)
             data_file.write(data.encode('utf8', 'replace'))
@@ -148,9 +152,18 @@ class PTB(Dataset):
 
         with open(self.raw_data_path, 'r') as file:
 
+            max_i = 0
+
             for i, line in enumerate(file):
                 words = tokenizer.tokenize(line)
                 w2c.update(words)
+
+                max_i = i
+
+                if i > self.max_line:
+                    break
+            
+            print("max_i", max_i)
 
             for w, c in w2c.items():
                 if c > self.min_occ and w not in special_tokens:

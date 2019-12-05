@@ -36,7 +36,6 @@ def idx2word(idx, i2w, pad_idx):
 
     return sent_str
 
-
 def interpolate(start, end, steps):
 
     interpolation = np.zeros((start.shape[0], steps + 2))

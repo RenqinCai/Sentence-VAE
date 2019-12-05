@@ -110,7 +110,6 @@ class SentenceVAE(nn.Module):
         logp = nn.functional.log_softmax(self.outputs2vocab(padded_outputs.view(-1, padded_outputs.size(2))), dim=-1)
         logp = logp.view(b, s, self.embedding.num_embeddings)
 
-
         return logp, mean, logv, z
 
 
@@ -133,7 +132,7 @@ class SentenceVAE(nn.Module):
         # required for dynamic stopping of sentence generation
         sequence_idx = torch.arange(0, batch_size, out=self.tensor()).long() # all idx of batch
         sequence_running = torch.arange(0, batch_size, out=self.tensor()).long() # all idx of batch which are still generating
-        sequence_mask = torch.ones(batch_size, out=self.tensor()).byte()
+        sequence_mask = torch.ones(batch_size, out=self.tensor()).bool()
 
         running_seqs = torch.arange(0, batch_size, out=self.tensor()).long() # idx of still generating sequences with respect to current loop
 
@@ -154,22 +153,40 @@ class SentenceVAE(nn.Module):
             logits = self.outputs2vocab(output)
 
             input_sequence = self._sample(logits)
+            # print("+"*10)
+            # print("input_sequence", input_sequence)
+            if len(input_sequence.size()) < 1:
+                input_sequence = input_sequence.unsqueeze(0)
 
             # save next input
             generations = self._save_sample(generations, input_sequence, sequence_running, t)
 
             # update gloabl running sequence
-            sequence_mask[sequence_running] = (input_sequence != self.eos_idx).data
+            sequence_mask[sequence_running] = (input_sequence != self.eos_idx).data.bool()
             sequence_running = sequence_idx.masked_select(sequence_mask)
 
             # update local running sequences
-            running_mask = (input_sequence != self.eos_idx).data
+            running_mask = (input_sequence != self.eos_idx).data.bool()
             running_seqs = running_seqs.masked_select(running_mask)
 
             # prune input and hidden state according to local update
             if len(running_seqs) > 0:
+                # print("**"*10)
+                # print("input_sequence", input_sequence)
+                # print("running seqs", running_seqs)
+                # print("-"*10)
+                # if len(running_seqs) == 1:
+                #     input_sequence = input_sequence.unsqueeze(0)
+                #     hidden = hidden[]
+                # else:
                 input_sequence = input_sequence[running_seqs]
                 hidden = hidden[:, running_seqs]
+
+                # if len(running_seqs) == 1:
+                   
+                # print("input_sequence", input_sequence)
+                # print("running seqs", running_seqs)
+                # print("hidden", hidden)
 
                 running_seqs = torch.arange(0, len(running_seqs), out=self.tensor()).long()
 

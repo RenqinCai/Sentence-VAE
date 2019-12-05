@@ -57,8 +57,11 @@ def main(args):
         writer.add_text("args", str(args))
         writer.add_text("ts", ts)
 
-    save_model_path = os.path.join(args.save_model_path, ts)
-    os.makedirs(save_model_path)
+    # save_model_path = os.path.join(args.save_model_path, ts)
+    save_model_path = args.save_model_path
+
+    if not os.path.exists(save_model_path):            
+        os.makedirs(save_model_path)
 
     def kl_anneal_function(anneal_function, step, k, x0):
         if anneal_function == 'logistic':
@@ -149,13 +152,14 @@ def main(args):
                     print("%s Batch %04d/%i, Loss %9.4f, NLL-Loss %9.4f, KL-Loss %9.4f, KL-Weight %6.3f"
                         %(split.upper(), iteration, len(data_loader)-1, loss.data.item(), NLL_loss.data.item()/batch_size, KL_loss.data.item()/batch_size, KL_weight))
 
-                if split == 'valid':
-                    if 'target_sents' not in tracker:
-                        tracker['target_sents'] = list()
-                    tracker['target_sents'] += idx2word(batch['target'].data, i2w=datasets['train'].get_i2w(), pad_idx=datasets['train'].pad_idx)
+                # if split == 'valid':
+                    # if 'target_sents' not in tracker:
+                    #     tracker['target_sents'] = list()
+                    # tracker['target_sents'] += idx2word(batch['target'].data, i2w=datasets['train'].get_i2w(), pad_idx=datasets['train'].pad_idx)
 
-                    # print("z", tracker['z'], z)
-                    tracker['z'] = torch.cat((tracker['z'], z.data), dim=0)
+                    # # print("z", tracker['z'], z)
+                    # tracker['z'] = torch.cat((tracker['z'], z.data), dim=0)
+                    # break
 
             print("%s Epoch %02d/%i, Mean ELBO %9.4f"%(split.upper(), epoch, args.epochs, torch.mean(tracker['ELBO'])))
 
@@ -163,16 +167,17 @@ def main(args):
                 writer.add_scalar("%s-Epoch/ELBO"%split.upper(), torch.mean(tracker['ELBO']), epoch)
 
             # save a dump of all sentences and the encoded latent space
-            if split == 'valid':
-                dump = {'target_sents':tracker['target_sents'], 'z':tracker['z'].tolist()}
-                if not os.path.exists(os.path.join('dumps', ts)):
-                    os.makedirs('dumps/'+ts)
-                with open(os.path.join('dumps/'+ts+'/valid_E%i.json'%epoch), 'w') as dump_file:
-                    json.dump(dump,dump_file)
+            # if split == 'valid':
+            #     dump = {'target_sents':tracker['target_sents'], 'z':tracker['z'].tolist()}
+            #     if not os.path.exists(os.path.join('dumps', ts)):
+            #         os.makedirs('dumps/'+ts)
+            #     with open(os.path.join('dumps/'+ts+'/valid_E%i.json'%epoch), 'w') as dump_file:
+            #         json.dump(dump,dump_file)
 
             # save checkpoint
             if split == 'train':
-                checkpoint_path = os.path.join(save_model_path, "E%i.pytorch"%(epoch))
+                # checkpoint_path = os.path.join(save_model_path, "E%i.pytorch"%(epoch))
+                checkpoint_path = os.path.join(save_model_path, "best.pytorch")
                 torch.save(model.state_dict(), checkpoint_path)
                 print("Model saved at %s"%checkpoint_path)
 
